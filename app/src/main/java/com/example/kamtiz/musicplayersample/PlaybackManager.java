@@ -17,11 +17,10 @@ package com.example.kamtiz.musicplayersample;
 
 import android.content.Context;
 import android.media.AudioManager;
-import android.media.MediaMetadata;
-import android.media.session.PlaybackState;
 import android.net.Uri;
-import android.os.PowerManager;
 import android.os.SystemClock;
+import android.support.v4.media.MediaMetadataCompat;
+import android.support.v4.media.session.PlaybackStateCompat;
 import android.util.Log;
 
 import com.google.android.exoplayer2.DefaultLoadControl;
@@ -51,7 +50,7 @@ class PlaybackManager implements AudioManager.OnAudioFocusChangeListener{
     private final Context mContext;
     private int mState;
     private boolean mPlayOnFocusGain;
-    private volatile MediaMetadata mCurrentMedia;
+    private volatile MediaMetadataCompat mCurrentMedia;
 
     private SimpleExoPlayer mMediaPlayer;
 
@@ -70,7 +69,7 @@ class PlaybackManager implements AudioManager.OnAudioFocusChangeListener{
         return mPlayOnFocusGain || (mMediaPlayer != null && mMediaPlayer.getPlayWhenReady());
     }
 
-    public MediaMetadata getCurrentMedia() {
+    public MediaMetadataCompat getCurrentMedia() {
         return mCurrentMedia;
     }
 
@@ -82,7 +81,7 @@ class PlaybackManager implements AudioManager.OnAudioFocusChangeListener{
         return mMediaPlayer != null ? mMediaPlayer.getCurrentPosition() : 0;
     }
 
-    public void play(MediaMetadata metadata) {
+    public void play(MediaMetadataCompat metadata) {
         String mediaId = metadata.getDescription().getMediaId();
         boolean mediaChanged = (mCurrentMedia == null || !getCurrentMediaId().equals(mediaId));
 
@@ -135,7 +134,7 @@ class PlaybackManager implements AudioManager.OnAudioFocusChangeListener{
         if (tryToGetAudioFocus()) {
             mPlayOnFocusGain = false;
             mMediaPlayer.setPlayWhenReady(true);
-            mState = PlaybackState.STATE_PLAYING;
+            mState = PlaybackStateCompat.STATE_PLAYING;
             updatePlaybackState();
         } else {
             mPlayOnFocusGain = true;
@@ -160,12 +159,12 @@ class PlaybackManager implements AudioManager.OnAudioFocusChangeListener{
             mMediaPlayer.setPlayWhenReady(false);
             mAudioManager.abandonAudioFocus(this);
         }
-        mState = PlaybackState.STATE_PAUSED;
+        mState = PlaybackStateCompat.STATE_PAUSED;
         updatePlaybackState();
     }
 
     public void stop() {
-        mState = PlaybackState.STATE_STOPPED;
+        mState = PlaybackStateCompat.STATE_STOPPED;
         updatePlaybackState();
         // Give up Audio focus
         mAudioManager.abandonAudioFocus(this);
@@ -206,15 +205,15 @@ class PlaybackManager implements AudioManager.OnAudioFocusChangeListener{
                 if (mPlayOnFocusGain) {
                     mPlayOnFocusGain = false;
                     mMediaPlayer.setPlayWhenReady(true);
-                    mState = PlaybackState.STATE_PLAYING;
+                    mState = PlaybackStateCompat.STATE_PLAYING;
                     updatePlaybackState();
                 }
                 float volume = canDuck ? 0.2f : 1.0f;
 //                mMediaPlayer.setVolume(volume, volume);
             }
-        } else if (mState == PlaybackState.STATE_PLAYING) {
+        } else if (mState == PlaybackStateCompat.STATE_PLAYING) {
             mMediaPlayer.setPlayWhenReady(false);
-            mState = PlaybackState.STATE_PAUSED;
+            mState = PlaybackStateCompat.STATE_PAUSED;
             updatePlaybackState();
         }
     }
@@ -233,11 +232,11 @@ class PlaybackManager implements AudioManager.OnAudioFocusChangeListener{
     }
 
     private long getAvailableActions() {
-        long actions = PlaybackState.ACTION_PLAY | PlaybackState.ACTION_PLAY_FROM_MEDIA_ID |
-                PlaybackState.ACTION_PLAY_FROM_SEARCH |
-                PlaybackState.ACTION_SKIP_TO_NEXT  | PlaybackState.ACTION_SKIP_TO_PREVIOUS;
+        long actions = PlaybackStateCompat.ACTION_PLAY | PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID |
+                PlaybackStateCompat.ACTION_PLAY_FROM_SEARCH |
+                PlaybackStateCompat.ACTION_SKIP_TO_NEXT  | PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS;
         if (isPlaying()) {
-            actions |= PlaybackState.ACTION_PAUSE;
+            actions |= PlaybackStateCompat.ACTION_PAUSE;
         }
         return actions;
     }
@@ -246,7 +245,7 @@ class PlaybackManager implements AudioManager.OnAudioFocusChangeListener{
         if (mCallback == null) {
             return;
         }
-        PlaybackState.Builder stateBuilder = new PlaybackState.Builder()
+        PlaybackStateCompat.Builder stateBuilder = new PlaybackStateCompat.Builder()
                 .setActions(getAvailableActions());
 
         stateBuilder.setState(mState, getCurrentStreamPosition(), 1.0f, SystemClock.elapsedRealtime());
@@ -254,7 +253,7 @@ class PlaybackManager implements AudioManager.OnAudioFocusChangeListener{
     }
 
     public interface Callback {
-        void onPlaybackStatusChanged(PlaybackState state);
+        void onPlaybackStatusChanged(PlaybackStateCompat state);
         void onCompletion();
     }
 

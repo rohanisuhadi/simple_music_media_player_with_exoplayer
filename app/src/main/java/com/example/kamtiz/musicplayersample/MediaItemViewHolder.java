@@ -19,7 +19,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.drawable.AnimationDrawable;
-import android.media.MediaDescription;
+import android.support.v4.media.MediaDescriptionCompat;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -42,7 +42,7 @@ class MediaItemViewHolder {
     TextView mDescriptionView;
 
     static View setupView(Activity activity, View convertView, ViewGroup parent,
-                          MediaDescription description, int state) {
+                          MediaDescriptionCompat description, int state) {
 
         if (sColorStateNotPlaying == null || sColorStatePlaying == null) {
             initializeColorStateLists(activity);

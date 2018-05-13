@@ -15,16 +15,28 @@
 package com.example.kamtiz.musicplayersample;
 
 import android.app.Notification;
+import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.media.MediaDescription;
-import android.media.MediaMetadata;
-import android.media.session.MediaSession;
-import android.media.session.PlaybackState;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Color;
+import android.os.Build;
+import android.os.RemoteException;
+import android.support.annotation.NonNull;
+import android.support.annotation.RequiresApi;
+import android.support.v4.app.NotificationCompat;
+import android.support.v4.media.MediaDescriptionCompat;
+import android.support.v4.media.MediaMetadataCompat;
+import android.support.v4.media.app.NotificationCompat.MediaStyle;
+import android.support.v4.media.session.MediaControllerCompat;
+import android.support.v4.media.session.MediaSessionCompat;
+import android.support.v4.media.session.PlaybackStateCompat;
+import android.support.v4.app.NotificationManagerCompat;
 
 /**
  * Keeps track of a notification and updates it automatically for a given
@@ -41,10 +53,10 @@ public class MediaNotificationManager extends BroadcastReceiver {
     private static final String ACTION_PREV = "com.example.android.musicplayercodelab.prev";
     private final MusicService mService;
     private final NotificationManager mNotificationManager;
-    private final Notification.Action mPlayAction;
-    private final Notification.Action mPauseAction;
-    private final Notification.Action mNextAction;
-    private final Notification.Action mPrevAction;
+    private final NotificationCompat.Action mPlayAction;
+    private final NotificationCompat.Action mPauseAction;
+    private final NotificationCompat.Action mNextAction;
+    private final NotificationCompat.Action mPrevAction;
 
     private boolean mStarted;
 
@@ -61,13 +73,13 @@ public class MediaNotificationManager extends BroadcastReceiver {
         PendingIntent prevIntent = PendingIntent.getBroadcast(mService, REQUEST_CODE,
                 new Intent(ACTION_PREV).setPackage(pkg), PendingIntent.FLAG_CANCEL_CURRENT);
 
-        mPlayAction = new Notification.Action(R.drawable.ic_play_arrow_white_24dp,
+        mPlayAction = new NotificationCompat.Action(R.drawable.ic_play_arrow_white_24dp,
                 mService.getString(R.string.label_play), playIntent);
-        mPauseAction = new Notification.Action(R.drawable.ic_pause_white_24dp,
+        mPauseAction = new NotificationCompat.Action(R.drawable.ic_pause_white_24dp,
                 mService.getString(R.string.label_pause), pauseIntent);
-        mNextAction = new Notification.Action(R.drawable.ic_skip_next_white_24dp,
+        mNextAction = new NotificationCompat.Action(R.drawable.ic_skip_next_white_24dp,
                 mService.getString(R.string.label_next), nextIntent);
-        mPrevAction = new Notification.Action(R.drawable.ic_skip_previous_white_24dp,
+        mPrevAction = new NotificationCompat.Action(R.drawable.ic_skip_previous_white_24dp,
                 mService.getString(R.string.label_previous), prevIntent);
 
         IntentFilter filter = new IntentFilter();
@@ -106,9 +118,9 @@ public class MediaNotificationManager extends BroadcastReceiver {
         }
     }
 
-    public void update(MediaMetadata metadata, PlaybackState state, MediaSession.Token token) {
-        if (state == null || state.getState() == PlaybackState.STATE_STOPPED ||
-                state.getState() == PlaybackState.STATE_NONE) {
+    public void update(MediaMetadataCompat metadata, PlaybackStateCompat state, MediaSessionCompat.Token token) {
+        if (state == null || state.getState() == PlaybackStateCompat.STATE_STOPPED ||
+                state.getState() == PlaybackStateCompat.STATE_NONE) {
             mService.stopForeground(true);
             try {
                 mService.unregisterReceiver(this);
@@ -121,17 +133,25 @@ public class MediaNotificationManager extends BroadcastReceiver {
         if (metadata == null) {
             return;
         }
-        boolean isPlaying = state.getState() == PlaybackState.STATE_PLAYING;
-        Notification.Builder notificationBuilder = new Notification.Builder(mService);
-        MediaDescription description = metadata.getDescription();
+        boolean isPlaying = state.getState() == PlaybackStateCompat.STATE_PLAYING;
+        NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(mService);
+        MediaDescriptionCompat description = metadata.getDescription();
 
         notificationBuilder
-                .setStyle(new Notification.MediaStyle()
+//                .setStyle(new android.support.v4.media.app.NotificationCompat.MediaStyle()
+//                        // show only play/pause in compact view
+//                        .setShowActionsInCompactView(playPauseButtonPosition)
+//                        .setShowCancelButton(true)
+//                        .setCancelButtonIntent(mStopIntent)
+//                        .setMediaSession(mSessionToken))
+
+                .setStyle(new MediaStyle()
                         .setMediaSession(token)
                         .setShowActionsInCompactView(0, 1, 2))
+
                 .setColor(mService.getApplication().getResources().getColor(R.color.notification_bg))
                 .setSmallIcon(R.drawable.ic_notification)
-                .setVisibility(Notification.VISIBILITY_PUBLIC)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setContentIntent(createContentIntent())
                 .setContentTitle(description.getTitle())
                 .setContentText(description.getSubtitle())
@@ -142,14 +162,14 @@ public class MediaNotificationManager extends BroadcastReceiver {
                 .setUsesChronometer(isPlaying);
 
         // If skip to next action is enabled
-        if ((state.getActions() & PlaybackState.ACTION_SKIP_TO_PREVIOUS) != 0) {
+        if ((state.getActions() & PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS) != 0) {
             notificationBuilder.addAction(mPrevAction);
         }
 
         notificationBuilder.addAction(isPlaying ? mPauseAction : mPlayAction);
 
         // If skip to prev action is enabled
-        if ((state.getActions() & PlaybackState.ACTION_SKIP_TO_NEXT) != 0) {
+        if ((state.getActions() & PlaybackStateCompat.ACTION_SKIP_TO_NEXT) != 0) {
             notificationBuilder.addAction(mNextAction);
         }
 

@@ -14,26 +14,28 @@
 
 package com.example.kamtiz.musicplayersample;
 
-import android.media.MediaMetadata;
-import android.media.browse.MediaBrowser.MediaItem;
-import android.media.session.MediaSession;
 import android.media.session.PlaybackState;
 import android.os.Bundle;
-import android.service.media.MediaBrowserService;
+import android.support.annotation.NonNull;
+import android.support.v4.media.MediaBrowserCompat;
+import android.support.v4.media.MediaBrowserServiceCompat;
+import android.support.v4.media.MediaMetadataCompat;
+import android.support.v4.media.session.MediaSessionCompat;
+import android.support.v4.media.session.PlaybackStateCompat;
 import android.util.Log;
 
 import java.util.List;
 
-public class MusicService extends MediaBrowserService {
+public class MusicService extends MediaBrowserServiceCompat {
 
-    private MediaSession mSession;
+    private MediaSessionCompat mSession;
     private PlaybackManager mPlayback;
 
-    final MediaSession.Callback mCallback = new MediaSession.Callback() {
+    final MediaSessionCompat.Callback mCallback = new MediaSessionCompat.Callback() {
         @Override
         public void onPlayFromMediaId(String mediaId, Bundle extras) {
             mSession.setActive(true);
-            MediaMetadata metadata = MusicLibrary.getMetadata(MusicService.this, mediaId);
+            MediaMetadataCompat metadata = MusicLibrary.getMetadata(MusicService.this, mediaId);
             mSession.setMetadata(metadata);
             mPlayback.play(metadata);
         }
@@ -71,17 +73,17 @@ public class MusicService extends MediaBrowserService {
         super.onCreate();
 
         // Start a new MediaSession
-        mSession = new MediaSession(this, "MusicService");
+        mSession = new MediaSessionCompat(this, "MusicService");
         mSession.setCallback(mCallback);
-        mSession.setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS |
-                MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS);
+        mSession.setFlags(MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS |
+                MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS);
         setSessionToken(mSession.getSessionToken());
 
         final MediaNotificationManager mediaNotificationManager = new MediaNotificationManager(this);
 
         mPlayback = new PlaybackManager(this, new PlaybackManager.Callback() {
             @Override
-            public void onPlaybackStatusChanged(PlaybackState state) {
+            public void onPlaybackStatusChanged(PlaybackStateCompat state) {
                 mSession.setPlaybackState(state);
                 mediaNotificationManager.update(mPlayback.getCurrentMedia(), state, getSessionToken());
             }
@@ -106,7 +108,9 @@ public class MusicService extends MediaBrowserService {
     }
 
     @Override
-    public void onLoadChildren(final String parentMediaId, final Result<List<MediaItem>> result) {
+    public void onLoadChildren(@NonNull String parentId, @NonNull Result<List<MediaBrowserCompat.MediaItem>> result) {
         result.sendResult(MusicLibrary.getMediaItems());
     }
+
+
 }

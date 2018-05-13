@@ -2,12 +2,16 @@ package com.example.kamtiz.musicplayersample;
 
 import android.app.Activity;
 import android.content.ComponentName;
-import android.media.MediaMetadata;
-import android.media.browse.MediaBrowser;
-import android.media.session.MediaController;
-import android.media.session.PlaybackState;
 import android.os.Bundle;
+import android.os.RemoteException;
+import android.support.annotation.NonNull;
+import android.support.v4.media.MediaBrowserCompat;
+import android.support.v4.media.MediaMetadataCompat;
+import android.support.v4.media.session.MediaControllerCompat;
+import android.support.v4.media.session.MediaSessionCompat;
+import android.support.v4.media.session.PlaybackStateCompat;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
@@ -22,6 +26,8 @@ import java.util.List;
 
 
 public class MainActivity extends AppCompatActivity {
+    
+    private final String TAG = MainActivity.class.getName();
 
     private BrowseAdapter mBrowserAdapter;
     private ImageButton mPlayPause;
@@ -30,36 +36,63 @@ public class MainActivity extends AppCompatActivity {
     private ImageView mAlbumArt;
     private ViewGroup mPlaybackControls;
 
-    private MediaMetadata mCurrentMetadata;
-    private PlaybackState mCurrentState;
+    private MediaMetadataCompat mCurrentMetadata;
+    private PlaybackStateCompat mCurrentState;
 
-    private MediaBrowser mMediaBrowser;
+    private MediaBrowserCompat mMediaBrowser;
 
-    private final MediaBrowser.ConnectionCallback mConnectionCallback =
-            new MediaBrowser.ConnectionCallback() {
+
+
+    private final MediaBrowserCompat.ConnectionCallback mConnectionCallback =
+            new MediaBrowserCompat.ConnectionCallback() {
                 @Override
                 public void onConnected() {
-                    mMediaBrowser.subscribe(mMediaBrowser.getRoot(), mSubscriptionCallback);
-                    MediaController mediaController = new MediaController(
-                            MainActivity.this, mMediaBrowser.getSessionToken());
-                    updatePlaybackState(mediaController.getPlaybackState());
-                    updateMetadata(mediaController.getMetadata());
-                    mediaController.registerCallback(mMediaControllerCallback);
-                    setMediaController(mediaController);
+                    try {
+                        connectToSession(mMediaBrowser.getSessionToken());
+                    } catch (RemoteException e) {
+                        Log.e(TAG, "could not connect media controller");
+                    }
                 }
             };
 
+    private void connectToSession(MediaSessionCompat.Token token) throws RemoteException {
+        Log.e("Data", mMediaBrowser.getRoot());
+        if(mMediaBrowser != null){
+            mMediaBrowser.subscribe(mMediaBrowser.getRoot(), mSubscriptionCallback);
+        }
+        MediaControllerCompat mediaController = new MediaControllerCompat(MainActivity.this, token);
+        Log.e("Berjalan","Datang");
+        updatePlaybackState(mediaController.getPlaybackState());
+        updateMetadata(mediaController.getMetadata());
+        mediaController.registerCallback(mMediaControllerCallback);
+        MediaControllerCompat.setMediaController(MainActivity.this, mediaController);
+
+//        if (mediaController.getMetadata() == null) {
+//            finish();
+//            Log.e("Berjalan","Stop");
+//            return;
+//        }else {
+//            Log.e("Berjalan","Datang");
+//            updatePlaybackState(mediaController.getPlaybackState());
+//            updateMetadata(mediaController.getMetadata());
+//            mediaController.registerCallback(mMediaControllerCallback);
+//            MediaControllerCompat.setMediaController(MainActivity.this, mediaController);
+//        }
+
+
+    }
+
     // Receive callbacks from the MediaController. Here we update our state such as which queue
     // is being shown, the current title and description and the PlaybackState.
-    private final MediaController.Callback mMediaControllerCallback = new MediaController.Callback() {
+    private final MediaControllerCompat.Callback mMediaControllerCallback = new MediaControllerCompat.Callback() {
         @Override
-        public void onMetadataChanged(MediaMetadata metadata) {
+        public void onMetadataChanged(MediaMetadataCompat metadata) {
             updateMetadata(metadata);
             mBrowserAdapter.notifyDataSetChanged();
         }
 
         @Override
-        public void onPlaybackStateChanged(PlaybackState state) {
+        public void onPlaybackStateChanged(PlaybackStateCompat state) {
             updatePlaybackState(state);
             mBrowserAdapter.notifyDataSetChanged();
         }
@@ -71,23 +104,32 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
-    private final MediaBrowser.SubscriptionCallback mSubscriptionCallback =
-            new MediaBrowser.SubscriptionCallback() {
+    private final MediaBrowserCompat.SubscriptionCallback mSubscriptionCallback =
+            new MediaBrowserCompat.SubscriptionCallback() {
                 @Override
-                public void onChildrenLoaded(String parentId, List<MediaBrowser.MediaItem> children) {
-                    onMediaLoaded(children);
+                public void onChildrenLoaded(@NonNull String parentId,@NonNull List<MediaBrowserCompat.MediaItem> children) {
+                    try {
+                        mBrowserAdapter.clear();
+                        mBrowserAdapter.addAll(children);
+                        mBrowserAdapter.notifyDataSetChanged();
+
+                    } catch (Throwable t) {
+                        Log.e(TAG, "Error on childrenloaded", t);
+                    }
+                }
+
+                @Override
+                public void onError(@NonNull String id) {
+                    Log.e(TAG, "browse fragment subscription onError, id=" + id);
                 }
             };
 
-    private void onMediaLoaded(List<MediaBrowser.MediaItem> media) {
-        mBrowserAdapter.clear();
-        mBrowserAdapter.addAll(media);
-        mBrowserAdapter.notifyDataSetChanged();
-    }
 
-    private void onMediaItemSelected(MediaBrowser.MediaItem item) {
+    private void onMediaItemSelected(MediaBrowserCompat.MediaItem item) {
         if (item.isPlayable()) {
-            getMediaController().getTransportControls().playFromMediaId(item.getMediaId(), null);
+//            getMediaController().getTransportControls().playFromMediaId(item.getMediaId(), null);
+            MediaControllerCompat.TransportControls controls = MediaControllerCompat.getMediaController(MainActivity.this).getTransportControls();
+            controls.playFromMediaId(item.getMediaId(), null);
         }
     }
 
@@ -106,7 +148,7 @@ public class MainActivity extends AppCompatActivity {
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                MediaBrowser.MediaItem item = mBrowserAdapter.getItem(position);
+                MediaBrowserCompat.MediaItem item = mBrowserAdapter.getItem(position);
                 onMediaItemSelected(item);
             }
         });
@@ -126,7 +168,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onStart() {
         super.onStart();
-        mMediaBrowser = new MediaBrowser(this,
+        mMediaBrowser = new MediaBrowserCompat(this,
                 new ComponentName(this, MusicService.class), mConnectionCallback, null);
         mMediaBrowser.connect();
     }
@@ -134,26 +176,33 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onStop() {
         super.onStop();
-        if (getMediaController() != null) {
-            getMediaController().unregisterCallback(mMediaControllerCallback);
+
+        MediaControllerCompat controllerCompat = MediaControllerCompat.getMediaController(MainActivity.this);
+        if (controllerCompat != null) {
+            controllerCompat.unregisterCallback(mMediaControllerCallback);
         }
+
         if (mMediaBrowser != null && mMediaBrowser.isConnected()) {
-            mMediaBrowser.unsubscribe(mCurrentMetadata.getDescription().getMediaId());
+            String data = mCurrentMetadata.getDescription().getMediaId();
+            if(data==null){
+                data = mMediaBrowser.getRoot();
+            }
+            mMediaBrowser.unsubscribe(data);
         }
     }
 
-    private void updatePlaybackState(PlaybackState state) {
+    private void updatePlaybackState(PlaybackStateCompat state) {
         mCurrentState = state;
-        if (state == null || state.getState() == PlaybackState.STATE_PAUSED ||
-                state.getState() == PlaybackState.STATE_STOPPED) {
-            mPlayPause.setImageDrawable(getDrawable(R.drawable.ic_play_arrow_black_36dp));
+        if (state == null || state.getState() == PlaybackStateCompat.STATE_PAUSED ||
+                state.getState() == PlaybackStateCompat.STATE_STOPPED) {
+            mPlayPause.setImageDrawable(getResources().getDrawable(R.drawable.ic_play_arrow_black_36dp));
         } else {
-            mPlayPause.setImageDrawable(getDrawable(R.drawable.ic_pause_black_36dp));
+            mPlayPause.setImageDrawable(getResources().getDrawable(R.drawable.ic_pause_black_36dp));
         }
         mPlaybackControls.setVisibility(state == null ? View.GONE : View.VISIBLE);
     }
 
-    private void updateMetadata(MediaMetadata metadata) {
+    private void updateMetadata(MediaMetadataCompat metadata) {
         mCurrentMetadata = metadata;
         mTitle.setText(metadata == null ? "" : metadata.getDescription().getTitle());
         mSubtitle.setText(metadata == null ? "" : metadata.getDescription().getSubtitle());
@@ -163,28 +212,28 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // An adapter for showing the list of browsed MediaItem's
-    private class BrowseAdapter extends ArrayAdapter<MediaBrowser.MediaItem> {
+    private class BrowseAdapter extends ArrayAdapter<MediaBrowserCompat.MediaItem> {
 
         public BrowseAdapter(Activity context) {
-            super(context, R.layout.media_list_item, new ArrayList<MediaBrowser.MediaItem>());
+            super(context, R.layout.media_list_item, new ArrayList<MediaBrowserCompat.MediaItem>());
         }
 
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
-            MediaBrowser.MediaItem item = getItem(position);
+            MediaBrowserCompat.MediaItem item = getItem(position);
             int itemState = MediaItemViewHolder.STATE_NONE;
             if (item.isPlayable()) {
                 String itemMediaId = item.getDescription().getMediaId();
-                int playbackState = PlaybackState.STATE_NONE;
+                int playbackState = PlaybackStateCompat.STATE_NONE;
                 if (mCurrentState != null) {
                     playbackState = mCurrentState.getState();
                 }
                 if (mCurrentMetadata != null &&
                         itemMediaId.equals(mCurrentMetadata.getDescription().getMediaId())) {
-                    if (playbackState == PlaybackState.STATE_PLAYING ||
-                            playbackState == PlaybackState.STATE_BUFFERING) {
+                    if (playbackState == PlaybackStateCompat.STATE_PLAYING ||
+                            playbackState == PlaybackStateCompat.STATE_BUFFERING) {
                         itemState = MediaItemViewHolder.STATE_PLAYING;
-                    } else if (playbackState != PlaybackState.STATE_ERROR) {
+                    } else if (playbackState != PlaybackStateCompat.STATE_ERROR) {
                         itemState = MediaItemViewHolder.STATE_PAUSED;
                     }
                 }
@@ -198,21 +247,23 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onClick(View v) {
             final int state = mCurrentState == null ?
-                    PlaybackState.STATE_NONE : mCurrentState.getState();
-            if (state == PlaybackState.STATE_PAUSED ||
-                    state == PlaybackState.STATE_STOPPED ||
-                    state == PlaybackState.STATE_NONE) {
+                    PlaybackStateCompat.STATE_NONE : mCurrentState.getState();
+            MediaControllerCompat.TransportControls controls = MediaControllerCompat.getMediaController(MainActivity.this).getTransportControls();
+
+            if (state == PlaybackStateCompat.STATE_PAUSED ||
+                    state == PlaybackStateCompat.STATE_STOPPED ||
+                    state == PlaybackStateCompat.STATE_NONE) {
 
                 if (mCurrentMetadata == null) {
                     mCurrentMetadata = MusicLibrary.getMetadata(MainActivity.this,
                             MusicLibrary.getMediaItems().get(0).getMediaId());
                     updateMetadata(mCurrentMetadata);
                 }
-                getMediaController().getTransportControls().playFromMediaId(
+                controls.playFromMediaId(
                         mCurrentMetadata.getDescription().getMediaId(), null);
 
             } else {
-                getMediaController().getTransportControls().pause();
+                controls.pause();
             }
         }
     };
