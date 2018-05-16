@@ -15,7 +15,6 @@
 package com.example.kamtiz.musicplayersample;
 
 import android.app.Notification;
-import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
@@ -24,19 +23,21 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.Color;
-import android.os.Build;
-import android.os.RemoteException;
-import android.support.annotation.NonNull;
-import android.support.annotation.RequiresApi;
+import android.os.AsyncTask;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.media.MediaDescriptionCompat;
 import android.support.v4.media.MediaMetadataCompat;
 import android.support.v4.media.app.NotificationCompat.MediaStyle;
-import android.support.v4.media.session.MediaControllerCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
-import android.support.v4.app.NotificationManagerCompat;
+import android.util.Log;
+
+import com.bumptech.glide.Glide;
+
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Keeps track of a notification and updates it automatically for a given
@@ -51,6 +52,9 @@ public class MediaNotificationManager extends BroadcastReceiver {
     private static final String ACTION_PLAY = "com.example.android.musicplayercodelab.play";
     private static final String ACTION_NEXT = "com.example.android.musicplayercodelab.next";
     private static final String ACTION_PREV = "com.example.android.musicplayercodelab.prev";
+    private static final String ACTION_STOP = "com.example.android.musicplayercodelab.stop";
+    private static final String ACTION_STOP_CASTING = "com.example.android.musicplayercodelab.stop_cast";
+
     private final MusicService mService;
     private final NotificationManager mNotificationManager;
     private final NotificationCompat.Action mPlayAction;
@@ -58,20 +62,37 @@ public class MediaNotificationManager extends BroadcastReceiver {
     private final NotificationCompat.Action mNextAction;
     private final NotificationCompat.Action mPrevAction;
 
+
+    private final PendingIntent playIntent;
+    private final PendingIntent pauseIntent;
+    private final PendingIntent prevIntent;
+    private final PendingIntent nextIntent;
+    private final PendingIntent mStopIntent;
+
+    private final PendingIntent mStopCastIntent;
+
+
+
     private boolean mStarted;
+    private Bitmap iconLargeBitmap;
 
     public MediaNotificationManager(MusicService service) {
         mService = service;
 
         String pkg = mService.getPackageName();
-        PendingIntent playIntent = PendingIntent.getBroadcast(mService, REQUEST_CODE,
+        playIntent = PendingIntent.getBroadcast(mService, REQUEST_CODE,
                 new Intent(ACTION_PLAY).setPackage(pkg), PendingIntent.FLAG_CANCEL_CURRENT);
-        PendingIntent pauseIntent = PendingIntent.getBroadcast(mService, REQUEST_CODE,
+        pauseIntent = PendingIntent.getBroadcast(mService, REQUEST_CODE,
                 new Intent(ACTION_PAUSE).setPackage(pkg), PendingIntent.FLAG_CANCEL_CURRENT);
-        PendingIntent nextIntent = PendingIntent.getBroadcast(mService, REQUEST_CODE,
+        nextIntent = PendingIntent.getBroadcast(mService, REQUEST_CODE,
                 new Intent(ACTION_NEXT).setPackage(pkg), PendingIntent.FLAG_CANCEL_CURRENT);
-        PendingIntent prevIntent = PendingIntent.getBroadcast(mService, REQUEST_CODE,
+        prevIntent = PendingIntent.getBroadcast(mService, REQUEST_CODE,
                 new Intent(ACTION_PREV).setPackage(pkg), PendingIntent.FLAG_CANCEL_CURRENT);
+        mStopIntent = PendingIntent.getBroadcast(mService, REQUEST_CODE,
+                new Intent(ACTION_STOP).setPackage(pkg), PendingIntent.FLAG_CANCEL_CURRENT);
+        mStopCastIntent = PendingIntent.getBroadcast(mService, REQUEST_CODE,
+                new Intent(ACTION_STOP_CASTING).setPackage(pkg),
+                PendingIntent.FLAG_CANCEL_CURRENT);
 
         mPlayAction = new NotificationCompat.Action(R.drawable.ic_play_arrow_white_24dp,
                 mService.getString(R.string.label_play), playIntent);
@@ -87,6 +108,7 @@ public class MediaNotificationManager extends BroadcastReceiver {
         filter.addAction(ACTION_PAUSE);
         filter.addAction(ACTION_PLAY);
         filter.addAction(ACTION_PREV);
+        filter.addAction(ACTION_STOP_CASTING);
 
         mService.registerReceiver(this, filter);
 
@@ -115,6 +137,12 @@ public class MediaNotificationManager extends BroadcastReceiver {
             case ACTION_PREV:
                 mService.mCallback.onSkipToPrevious();
                 break;
+            case ACTION_STOP_CASTING:
+                Intent i = new Intent(context, MusicService.class);
+                i.setAction(MusicService.ACTION_CMD);
+                i.putExtra(MusicService.CMD_NAME, MusicService.CMD_STOP_CASTING);
+                mService.startService(i);
+                break;
         }
     }
 
@@ -133,18 +161,41 @@ public class MediaNotificationManager extends BroadcastReceiver {
         if (metadata == null) {
             return;
         }
+
+        MediaDescriptionCompat description = metadata.getDescription();
+        String ulrImage = MusicLibrary.getAlbumBitmap(mService,description.getMediaId());
+
+        new AsyncTask<Void,Void,Void>(){
+
+            @Override
+            protected Void doInBackground(Void... voids) {
+                try {
+                    Log.e("ULRIMAGE",ulrImage);
+                    iconLargeBitmap = Glide.with(mService).asBitmap().load(ulrImage).into(256,256).get();
+                }catch (ExecutionException e){
+                    Log.e("ErrorLoad","ExecutionException");
+                } catch (InterruptedException e) {
+                    Log.e("ErrorLoad","InterruptedException");
+                    e.printStackTrace();
+                }
+                return null;
+            }
+
+            @Override
+            protected void onPostExecute(Void result) {
+                super.onPostExecute(result);
+                Log.e("ErrorLoad","Berhasil");
+                setNotification(description, state, token);
+            }
+        }.execute();
+
+    }
+
+    private void setNotification(MediaDescriptionCompat description, PlaybackStateCompat state, MediaSessionCompat.Token token){
         boolean isPlaying = state.getState() == PlaybackStateCompat.STATE_PLAYING;
         NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(mService);
-        MediaDescriptionCompat description = metadata.getDescription();
 
         notificationBuilder
-//                .setStyle(new android.support.v4.media.app.NotificationCompat.MediaStyle()
-//                        // show only play/pause in compact view
-//                        .setShowActionsInCompactView(playPauseButtonPosition)
-//                        .setShowCancelButton(true)
-//                        .setCancelButtonIntent(mStopIntent)
-//                        .setMediaSession(mSessionToken))
-
                 .setStyle(new MediaStyle()
                         .setMediaSession(token)
                         .setShowActionsInCompactView(0, 1, 2))
@@ -155,11 +206,12 @@ public class MediaNotificationManager extends BroadcastReceiver {
                 .setContentIntent(createContentIntent())
                 .setContentTitle(description.getTitle())
                 .setContentText(description.getSubtitle())
-                .setLargeIcon(MusicLibrary.getAlbumBitmap(mService, description.getMediaId()))
+                .setLargeIcon(iconLargeBitmap)
                 .setOngoing(isPlaying)
                 .setWhen(isPlaying ? System.currentTimeMillis() - state.getPosition() : 0)
                 .setShowWhen(isPlaying)
                 .setUsesChronometer(isPlaying);
+
 
         // If skip to next action is enabled
         if ((state.getActions() & PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS) != 0) {
@@ -188,11 +240,16 @@ public class MediaNotificationManager extends BroadcastReceiver {
         }
     }
 
+    private void loadImage(String ulrImage){
+
+    }
+
     private PendingIntent createContentIntent() {
         Intent openUI = new Intent(mService, MainActivity.class);
         openUI.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
         return PendingIntent.getActivity(mService, REQUEST_CODE, openUI,
                 PendingIntent.FLAG_CANCEL_CURRENT);
     }
+
 
 }

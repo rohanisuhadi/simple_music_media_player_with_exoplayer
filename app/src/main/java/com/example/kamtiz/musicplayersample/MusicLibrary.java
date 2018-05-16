@@ -19,9 +19,16 @@ package com.example.kamtiz.musicplayersample;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.os.AsyncTask;
 import android.support.v4.media.MediaBrowserCompat;
 import android.support.v4.media.MediaMetadataCompat;
 
+import com.bumptech.glide.Glide;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -30,15 +37,18 @@ import java.util.TreeMap;
 class MusicLibrary {
 
     private static final TreeMap<String, MediaMetadataCompat> music = new TreeMap<>();
-    private static final HashMap<String, Integer> albumRes = new HashMap<>();
+    private static final HashMap<String, String> albumRes = new HashMap<>();
     private static final HashMap<String, String> musicRes = new HashMap<String, String>();
     static {
         createMediaMetadata("Jazz_In_Paris", "Jazz in Paris",
                 "Media Right Productions", "Jazz & Blues", "Jazz", 103,
-                "http://audiobookpreviews.kilatstorage.com/2989_20180417144035.mp3", R.drawable.album_jazz_blues, "album_jazz_blues");
+                "http://audiobookpreviews.kilatstorage.com/2989_20180417144035.mp3",
+                "http://audiobookchaptercoverarts.kilatstorage.com/6696_20180417152054.png",
+                "album_jazz_blues");
         createMediaMetadata("The_Coldest_Shoulder",
                 "The Coldest Shoulder", "The 126ers", "Youtube Audio Library Rock 2", "Rock", 160,
-                "http://audiobookpreviews.kilatstorage.com/2929_20180321053709.mp3", R.drawable.album_youtube_audio_library_rock_2,
+                "http://audiobookpreviews.kilatstorage.com/2929_20180321053709.mp3",
+                "http://audiobookchaptercoverarts.kilatstorage.com/6696_20180417152054.png",
                 "album_youtube_audio_library_rock_2");
     }
 
@@ -51,19 +61,22 @@ class MusicLibrary {
     }
 
     private static String getAlbumArtUri(String albumArtResName) {
-        return "android.resource://" + BuildConfig.APPLICATION_ID + "/drawable/" + albumArtResName;
+        return albumArtResName;
     }
 
     private static String getMusicRes(String mediaId) {
         return String.valueOf(musicRes.containsKey(mediaId) ? musicRes.get(mediaId) : 0);
     }
 
-    private static int getAlbumRes(String mediaId) {
-        return albumRes.containsKey(mediaId) ? albumRes.get(mediaId) : 0;
+    private static String getAlbumRes(String mediaId) {
+        return albumRes.containsKey(mediaId) ? albumRes.get(mediaId) : "";
     }
 
-    public static Bitmap getAlbumBitmap(Context ctx, String mediaId) {
-        return BitmapFactory.decodeResource(ctx.getResources(), MusicLibrary.getAlbumRes(mediaId));
+    public static String getAlbumBitmap(Context ctx, String mediaId) {
+
+//        return Glide.with(ctx).load(MusicLibrary.getAlbumRes(mediaId));
+//        return BitmapFactory.decodeResource(ctx.getResources(), MusicLibrary.getAlbumRes(mediaId));
+        return MusicLibrary.getAlbumRes(mediaId);
     }
 
     public static List<MediaBrowserCompat.MediaItem> getMediaItems() {
@@ -93,7 +106,7 @@ class MusicLibrary {
 
     public static MediaMetadataCompat getMetadata(Context ctx, String mediaId) {
         MediaMetadataCompat metadataWithoutBitmap = music.get(mediaId);
-        Bitmap albumArt = getAlbumBitmap(ctx, mediaId);
+        String albumArt = getAlbumBitmap(ctx, mediaId);
 
         // Since MediaMetadata is immutable, we need to create a copy to set the album art
         // We don't set it initially on all items so that they don't take unnecessary memory
@@ -105,12 +118,12 @@ class MusicLibrary {
         }
         builder.putLong(MediaMetadataCompat.METADATA_KEY_DURATION,
                 metadataWithoutBitmap.getLong(MediaMetadataCompat.METADATA_KEY_DURATION));
-        builder.putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, albumArt);
+        builder.putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, albumArt);
         return builder.build();
     }
 
     private static void createMediaMetadata(String mediaId, String title, String artist,
-                                            String album, String genre, long duration, String musicResId, int albumArtResId,
+                                            String album, String genre, long duration, String musicResId, String albumArtResId,
                                             String albumArtResName) {
         music.put(mediaId,
                 new MediaMetadataCompat.Builder()

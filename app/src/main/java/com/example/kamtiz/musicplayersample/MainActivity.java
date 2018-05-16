@@ -21,6 +21,9 @@ import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.request.RequestOptions;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -168,8 +171,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onStart() {
         super.onStart();
-        mMediaBrowser = new MediaBrowserCompat(this,
-                new ComponentName(this, MusicService.class), mConnectionCallback, null);
+        mMediaBrowser = new MediaBrowserCompat(this,new ComponentName(this, MusicService.class), mConnectionCallback, null);
         mMediaBrowser.connect();
     }
 
@@ -206,8 +208,15 @@ public class MainActivity extends AppCompatActivity {
         mCurrentMetadata = metadata;
         mTitle.setText(metadata == null ? "" : metadata.getDescription().getTitle());
         mSubtitle.setText(metadata == null ? "" : metadata.getDescription().getSubtitle());
-        mAlbumArt.setImageBitmap(metadata == null ? null : MusicLibrary.getAlbumBitmap(this,
-                metadata.getDescription().getMediaId()));
+//        mAlbumArt.setImageBitmap(metadata == null ? null : MusicLibrary.getAlbumBitmap(this,
+//                metadata.getDescription().getMediaId()));
+        if(metadata != null ){
+            Glide.with(this).load(MusicLibrary.getAlbumBitmap(MainActivity.this,
+                    metadata.getDescription().getMediaId()))
+                    .apply(new RequestOptions().placeholder(R.drawable.ic_launcher)).into(mAlbumArt);
+
+        }
+
         mBrowserAdapter.notifyDataSetChanged();
     }
 

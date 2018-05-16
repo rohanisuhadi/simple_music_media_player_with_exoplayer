@@ -42,7 +42,6 @@ import com.google.android.exoplayer2.upstream.DataSource;
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
 import com.google.android.exoplayer2.util.Util;
 
-import java.io.IOException;
 
 
 class PlaybackManager implements AudioManager.OnAudioFocusChangeListener{
@@ -56,6 +55,7 @@ class PlaybackManager implements AudioManager.OnAudioFocusChangeListener{
 
     private final Callback mCallback;
     private final AudioManager mAudioManager;
+    private boolean mExoPlayerNullIsStopped =  false;
 
     private final ExoPlayerEventListener mEventListener = new ExoPlayerEventListener();
 
@@ -189,20 +189,38 @@ class PlaybackManager implements AudioManager.OnAudioFocusChangeListener{
     public void onAudioFocusChange(int focusChange) {
         boolean gotFullFocus = false;
         boolean canDuck = false;
-        if (focusChange == AudioManager.AUDIOFOCUS_GAIN) {
-            gotFullFocus = true;
 
-        } else if (focusChange == AudioManager.AUDIOFOCUS_LOSS ||
-                focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT ||
-                focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) {
-            // We have lost focus. If we can duck (low playback volume), we can keep playing.
-            // Otherwise, we need to pause the playback.
-            canDuck = focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK;
+        switch (focusChange) {
+            case AudioManager.AUDIOFOCUS_GAIN:
+                gotFullFocus = true;
+                break;
+            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
+                // Audio focus was lost, but it's possible to duck (i.e.: play quietly)
+                canDuck = true;
+                break;
+            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
+                // Lost audio focus, but will gain it back (shortly), so note whether
+                // playback should resume
+                canDuck = focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK;
+                mPlayOnFocusGain = mMediaPlayer != null && mMediaPlayer.getPlayWhenReady();
+                if (mPlayOnFocusGain ){
+                    Log.e("STATUS","TRUE AUDIOFOCUS_LOSS_TRANSIENT");
+                }else {
+                    Log.e("STATUS","FALSE AUDIOFOCUS_LOSS_TRANSIENT");
+                }
+                break;
+            case AudioManager.AUDIOFOCUS_LOSS:
+                // Lost audio focus, probably "permanently"
+                canDuck = focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK;
+                break;
         }
 
+
         if (gotFullFocus || canDuck) {
+            Log.e("STATUS","TRUE gotFullFocus || canDuck");
             if (mMediaPlayer != null) {
                 if (mPlayOnFocusGain) {
+                    Log.e("STATUS","TRUE gotFullFocus || canDuck");
                     mPlayOnFocusGain = false;
                     mMediaPlayer.setPlayWhenReady(true);
                     mState = PlaybackStateCompat.STATE_PLAYING;
@@ -212,13 +230,14 @@ class PlaybackManager implements AudioManager.OnAudioFocusChangeListener{
 //                mMediaPlayer.setVolume(volume, volume);
             }
         } else if (mState == PlaybackStateCompat.STATE_PLAYING) {
+            Log.e("STATUS","TRUE mState == PlaybackStateCompat.STATE_PLAYING");
             mMediaPlayer.setPlayWhenReady(false);
             mState = PlaybackStateCompat.STATE_PAUSED;
             updatePlaybackState();
         }
+
+
     }
-
-
 
     /**
      * Releases resources used by the service for playback.
@@ -281,9 +300,9 @@ class PlaybackManager implements AudioManager.OnAudioFocusChangeListener{
                 case Player.STATE_IDLE:
                 case Player.STATE_BUFFERING:
                 case Player.STATE_READY:
-                    if (mCallback != null) {
+//                    if (mCallback != null) {
 //                        mCallback.onPlaybackStatusChanged(getState());
-                    }
+//                    }
                     break;
                 case Player.STATE_ENDED:
 
