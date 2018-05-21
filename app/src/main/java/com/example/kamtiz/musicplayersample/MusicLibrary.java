@@ -39,7 +39,8 @@ class MusicLibrary {
     private static final TreeMap<String, MediaMetadataCompat> music = new TreeMap<>();
     private static final HashMap<String, String> albumRes = new HashMap<>();
     private static final HashMap<String, String> musicRes = new HashMap<String, String>();
-    static {
+
+    public MusicLibrary() {
         createMediaMetadata("Jazz_In_Paris", "Jazz in Paris",
                 "Media Right Productions", "Jazz & Blues", "Jazz", 103,
                 "http://audiobookpreviews.kilatstorage.com/2989_20180417144035.mp3",
@@ -122,7 +123,7 @@ class MusicLibrary {
         return builder.build();
     }
 
-    private static void createMediaMetadata(String mediaId, String title, String artist,
+    public void createMediaMetadata(String mediaId, String title, String artist,
                                             String album, String genre, long duration, String musicResId, String albumArtResId,
                                             String albumArtResName) {
         music.put(mediaId,

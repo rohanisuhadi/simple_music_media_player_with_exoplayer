@@ -5,4 +5,17 @@
     <string name="currently_playing_song">Song currently playing</string>
     <string name="currently_playing_artist">Artist of currently playing song</string>
     <string name="currently_playing_extra_info">Extra info for currently playing song</string>
+
+    <string name="title_activity_fullscreen">FullscreenActivity</string>
+    <string name="dummy_button">Dummy Button</string>
+    <string name="dummy_content">DUMMY\nCONTENT</string>
+    <string name="background_image_str">Background image for album art</string>
+    <string name="search_queue_title">Search results</string>
+    <string name="no_search_results">No search results.</string>
+    <string name="loading">Loading…</string>
+    <string name="media_route_menu_title">Play on…</string>
+    <string name="nav_header_username">Username</string>
+    <string name="casting_to_device">Casting to %1$s</string>
+    <string name="error_loading_media">Error Loading Media</string>
+    <string name="error_no_connection">Cannot connect to server. Please, check your Internet connectivity.</string>
 </resources>

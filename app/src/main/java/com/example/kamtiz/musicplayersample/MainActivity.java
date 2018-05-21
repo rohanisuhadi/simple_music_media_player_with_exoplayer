@@ -1,7 +1,9 @@
 package com.example.kamtiz.musicplayersample;
 
 import android.app.Activity;
+import android.app.FragmentTransaction;
 import android.content.ComponentName;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.RemoteException;
 import android.support.annotation.NonNull;
@@ -11,11 +13,13 @@ import android.support.v4.media.session.MediaControllerCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
 import android.support.v7.app.AppCompatActivity;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.ListView;
@@ -28,9 +32,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements MediaBrowserFragment.MediaFragmentListener{
     
     private final String TAG = MainActivity.class.getName();
+
+    public static final String EXTRA_CURRENT_MEDIA_DESCRIPTION =
+            "com.example.kamtiz.musicplayersample.CURRENT_MEDIA_DESCRIPTION";
 
     private BrowseAdapter mBrowserAdapter;
     private ImageButton mPlayPause;
@@ -41,49 +48,10 @@ public class MainActivity extends AppCompatActivity {
 
     private MediaMetadataCompat mCurrentMetadata;
     private PlaybackStateCompat mCurrentState;
-
     private MediaBrowserCompat mMediaBrowser;
 
+    private MusicLibrary musicLibrary;
 
-
-    private final MediaBrowserCompat.ConnectionCallback mConnectionCallback =
-            new MediaBrowserCompat.ConnectionCallback() {
-                @Override
-                public void onConnected() {
-                    try {
-                        connectToSession(mMediaBrowser.getSessionToken());
-                    } catch (RemoteException e) {
-                        Log.e(TAG, "could not connect media controller");
-                    }
-                }
-            };
-
-    private void connectToSession(MediaSessionCompat.Token token) throws RemoteException {
-        Log.e("Data", mMediaBrowser.getRoot());
-        if(mMediaBrowser != null){
-            mMediaBrowser.subscribe(mMediaBrowser.getRoot(), mSubscriptionCallback);
-        }
-        MediaControllerCompat mediaController = new MediaControllerCompat(MainActivity.this, token);
-        Log.e("Berjalan","Datang");
-        updatePlaybackState(mediaController.getPlaybackState());
-        updateMetadata(mediaController.getMetadata());
-        mediaController.registerCallback(mMediaControllerCallback);
-        MediaControllerCompat.setMediaController(MainActivity.this, mediaController);
-
-//        if (mediaController.getMetadata() == null) {
-//            finish();
-//            Log.e("Berjalan","Stop");
-//            return;
-//        }else {
-//            Log.e("Berjalan","Datang");
-//            updatePlaybackState(mediaController.getPlaybackState());
-//            updateMetadata(mediaController.getMetadata());
-//            mediaController.registerCallback(mMediaControllerCallback);
-//            MediaControllerCompat.setMediaController(MainActivity.this, mediaController);
-//        }
-
-
-    }
 
     // Receive callbacks from the MediaController. Here we update our state such as which queue
     // is being shown, the current title and description and the PlaybackState.
@@ -112,6 +80,7 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onChildrenLoaded(@NonNull String parentId,@NonNull List<MediaBrowserCompat.MediaItem> children) {
                     try {
+                        Log.e("Masukdata","bener");
                         mBrowserAdapter.clear();
                         mBrowserAdapter.addAll(children);
                         mBrowserAdapter.notifyDataSetChanged();
@@ -128,12 +97,26 @@ public class MainActivity extends AppCompatActivity {
             };
 
 
-    private void onMediaItemSelected(MediaBrowserCompat.MediaItem item) {
+    public void onMediaItemSelected(MediaBrowserCompat.MediaItem item) {
         if (item.isPlayable()) {
-//            getMediaController().getTransportControls().playFromMediaId(item.getMediaId(), null);
             MediaControllerCompat.TransportControls controls = MediaControllerCompat.getMediaController(MainActivity.this).getTransportControls();
             controls.playFromMediaId(item.getMediaId(), null);
         }
+    }
+
+    @Override
+    public MediaMetadataCompat getMediaMetadataCompat() {
+        return this.mCurrentMetadata;
+    }
+
+    @Override
+    public PlaybackStateCompat getPlaybackStateCompat() {
+        return this.mCurrentState;
+    }
+
+    @Override
+    public MediaBrowserCompat getMediaBrowser() {
+        return this.mMediaBrowser;
     }
 
 
@@ -143,8 +126,8 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         setTitle(getString(R.string.app_name));
 
-
         mBrowserAdapter = new BrowseAdapter(this);
+        musicLibrary = new MusicLibrary();
 
         ListView listView = (ListView) findViewById(R.id.list_view);
         listView.setAdapter(mBrowserAdapter);
@@ -165,13 +148,90 @@ public class MainActivity extends AppCompatActivity {
         mTitle = (TextView) findViewById(R.id.title);
         mSubtitle = (TextView) findViewById(R.id.artist);
         mAlbumArt = (ImageView) findViewById(R.id.album_art);
+        mMediaBrowser = new MediaBrowserCompat(this,new ComponentName(this, MusicService.class), mConnectionCallback, null);
+        musicLibrary.createMediaMetadata("sembuhkan_aku", "Sembuhkan aku dari selingkuh",
+                "Media Right Productions", "Jazz & Blues", "Jazz", 103,
+                "http://audiobookchapters.kilatstorage.com/3554_20170116234735.mp3",
+                "http://audiobookchaptercoverarts.kilatstorage.com/3554_20161227195825.jpg",
+                "album_jazz_blues");
+        musicLibrary.createMediaMetadata("1",
+                "The Coldest Shoulder", "The 126ers", "Youtube Audio Library Rock 2", "Rock", 160,
+                "http://audiobookpreviews.kilatstorage.com/2929_20180321053709.mp3",
+                "http://audiobookchaptercoverarts.kilatstorage.com/6696_20180417152054.png",
+                "album_youtube_audio_library_rock_2");
+        musicLibrary.createMediaMetadata("2",
+                "The Coldest Shoulder", "The 126ers", "Youtube Audio Library Rock 2", "Rock", 160,
+                "http://audiobookpreviews.kilatstorage.com/2929_20180321053709.mp3",
+                "http://audiobookchaptercoverarts.kilatstorage.com/6696_20180417152054.png",
+                "album_youtube_audio_library_rock_2");
+        musicLibrary.createMediaMetadata("3",
+                "The Coldest Shoulder", "The 126ers", "Youtube Audio Library Rock 2", "Rock", 160,
+                "http://audiobookpreviews.kilatstorage.com/2929_20180321053709.mp3",
+                "http://audiobookchaptercoverarts.kilatstorage.com/6696_20180417152054.png",
+                "album_youtube_audio_library_rock_2");
+        musicLibrary.createMediaMetadata("4",
+                "The Coldest Shoulder", "The 126ers", "Youtube Audio Library Rock 2", "Rock", 160,
+                "http://audiobookpreviews.kilatstorage.com/2929_20180321053709.mp3",
+                "http://audiobookchaptercoverarts.kilatstorage.com/6696_20180417152054.png",
+                "album_youtube_audio_library_rock_2");
+        musicLibrary.createMediaMetadata("5",
+                "The Coldest Shoulder", "The 126ers", "Youtube Audio Library Rock 2", "Rock", 160,
+                "http://audiobookpreviews.kilatstorage.com/2929_20180321053709.mp3",
+                "http://audiobookchaptercoverarts.kilatstorage.com/6696_20180417152054.png",
+                "album_youtube_audio_library_rock_2");
+        musicLibrary.createMediaMetadata("6",
+                "The Coldest Shoulder", "The 126ers", "Youtube Audio Library Rock 2", "Rock", 160,
+                "http://audiobookpreviews.kilatstorage.com/2929_20180321053709.mp3",
+                "http://audiobookchaptercoverarts.kilatstorage.com/6696_20180417152054.png",
+                "album_youtube_audio_library_rock_2");
+        musicLibrary.createMediaMetadata("7",
+                "The Coldest Shoulder", "The 126ers", "Youtube Audio Library Rock 2", "Rock", 160,
+                "http://audiobookpreviews.kilatstorage.com/2929_20180321053709.mp3",
+                "http://audiobookchaptercoverarts.kilatstorage.com/6696_20180417152054.png",
+                "album_youtube_audio_library_rock_2");
+        musicLibrary.createMediaMetadata("9",
+                "The Coldest Shoulder", "The 126ers", "Youtube Audio Library Rock 2", "Rock", 160,
+                "http://audiobookpreviews.kilatstorage.com/2929_20180321053709.mp3",
+                "http://audiobookchaptercoverarts.kilatstorage.com/6696_20180417152054.png",
+                "album_youtube_audio_library_rock_2");
+        if(mPlaybackControls.getVisibility() == View.VISIBLE){
+            mPlaybackControls.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    try {
+                        Intent k = new Intent(MainActivity.this, FullscreenActivity.class);
+                        startActivity(k);
+                    } catch(Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
+        }
+
+        Button button = (Button) findViewById(R.id.btn);
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                MediaBrowserFragment fragment = (MediaBrowserFragment) getFragmentManager().findFragmentByTag(MediaBrowserFragment.class.getName());
+
+                if (fragment == null) {
+                    fragment = new MediaBrowserFragment();
+                    FragmentTransaction transaction = getFragmentManager().beginTransaction();
+                    transaction.replace(R.id.container, fragment);
+
+                    // If this is not the top level media (root), we add it to the fragment back stack,
+                    // so that actionbar toggle and Back will work appropriately:
+                    transaction.commit();
+
+                }
+            }
+        });
     }
 
 
     @Override
     public void onStart() {
         super.onStart();
-        mMediaBrowser = new MediaBrowserCompat(this,new ComponentName(this, MusicService.class), mConnectionCallback, null);
         mMediaBrowser.connect();
     }
 
@@ -191,6 +251,7 @@ public class MainActivity extends AppCompatActivity {
             }
             mMediaBrowser.unsubscribe(data);
         }
+        mMediaBrowser.disconnect();
     }
 
     private void updatePlaybackState(PlaybackStateCompat state) {
@@ -208,23 +269,23 @@ public class MainActivity extends AppCompatActivity {
         mCurrentMetadata = metadata;
         mTitle.setText(metadata == null ? "" : metadata.getDescription().getTitle());
         mSubtitle.setText(metadata == null ? "" : metadata.getDescription().getSubtitle());
-//        mAlbumArt.setImageBitmap(metadata == null ? null : MusicLibrary.getAlbumBitmap(this,
-//                metadata.getDescription().getMediaId()));
         if(metadata != null ){
             Glide.with(this).load(MusicLibrary.getAlbumBitmap(MainActivity.this,
                     metadata.getDescription().getMediaId()))
                     .apply(new RequestOptions().placeholder(R.drawable.ic_launcher)).into(mAlbumArt);
-
         }
 
         mBrowserAdapter.notifyDataSetChanged();
     }
+
+
 
     // An adapter for showing the list of browsed MediaItem's
     private class BrowseAdapter extends ArrayAdapter<MediaBrowserCompat.MediaItem> {
 
         public BrowseAdapter(Activity context) {
             super(context, R.layout.media_list_item, new ArrayList<MediaBrowserCompat.MediaItem>());
+
         }
 
         @Override
@@ -247,8 +308,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
             }
-            return MediaItemViewHolder.setupView((Activity) getContext(), convertView, parent,
-                    item.getDescription(), itemState);
+            return MediaItemViewHolder.setupView((Activity) getContext(), convertView, parent, item.getDescription(), itemState);
         }
     }
 
@@ -268,12 +328,38 @@ public class MainActivity extends AppCompatActivity {
                             MusicLibrary.getMediaItems().get(0).getMediaId());
                     updateMetadata(mCurrentMetadata);
                 }
-                controls.playFromMediaId(
-                        mCurrentMetadata.getDescription().getMediaId(), null);
+                controls.playFromMediaId(mCurrentMetadata.getDescription().getMediaId(), null);
 
             } else {
                 controls.pause();
             }
         }
     };
+
+    private final MediaBrowserCompat.ConnectionCallback mConnectionCallback =
+            new MediaBrowserCompat.ConnectionCallback() {
+                @Override
+                public void onConnected() {
+                    try {
+                        connectToSession(mMediaBrowser.getSessionToken());
+                    } catch (RemoteException e) {
+                        Log.e(TAG, "could not connect media controller");
+                    }
+                }
+            };
+
+    private void connectToSession(MediaSessionCompat.Token token) throws RemoteException {
+        Log.e("Data", mMediaBrowser.getRoot());
+        if(mMediaBrowser != null){
+            mMediaBrowser.subscribe(mMediaBrowser.getRoot(), mSubscriptionCallback);
+        }
+        MediaControllerCompat mediaController = new MediaControllerCompat(MainActivity.this, token);
+        Log.e("Berjalan","Datang");
+        updatePlaybackState(mediaController.getPlaybackState());
+        updateMetadata(mediaController.getMetadata());
+        mediaController.registerCallback(mMediaControllerCallback);
+        MediaControllerCompat.setMediaController(this, mediaController);
+
+
+    }
 }

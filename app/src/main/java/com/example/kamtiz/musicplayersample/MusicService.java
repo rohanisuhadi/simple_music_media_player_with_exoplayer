@@ -14,7 +14,6 @@
 
 package com.example.kamtiz.musicplayersample;
 
-import android.media.session.PlaybackState;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.media.MediaBrowserCompat;
@@ -27,6 +26,8 @@ import android.util.Log;
 import java.util.List;
 
 public class MusicService extends MediaBrowserServiceCompat {
+
+    private static final String TAG = LogHelper.makeLogTag(MusicService.class);
 
     // Extra on MediaSession that contains the Cast device name currently connected to
     public static final String EXTRA_CONNECTED_CAST = "com.example.android.musicplayercodelab.CAST_NAME";
@@ -62,6 +63,22 @@ public class MusicService extends MediaBrowserServiceCompat {
             if (mPlayback.getCurrentMediaId() != null) {
                 onPlayFromMediaId(mPlayback.getCurrentMediaId(), null);
             }
+        }
+
+        @Override
+        public void onFastForward() {
+            mPlayback.setPlaybackSpeedPlus();
+        }
+
+        @Override
+        public void onRewind() {
+            mPlayback.setPlaybackSpeedMinus();
+        }
+
+        @Override
+        public void onSeekTo(long position) {
+            LogHelper.e(TAG, "onSeekTo:", position);
+            mPlayback.seekTo((int) position);
         }
 
         @Override

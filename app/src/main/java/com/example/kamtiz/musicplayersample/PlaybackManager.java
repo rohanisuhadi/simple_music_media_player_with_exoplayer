@@ -46,6 +46,11 @@ import com.google.android.exoplayer2.util.Util;
 
 class PlaybackManager implements AudioManager.OnAudioFocusChangeListener{
 
+    private static final String TAG = LogHelper.makeLogTag(PlaybackManager.class);
+
+    public static final int FAST_REWIND = 15000;
+    public static final int FAST_FORWARD = 15000;
+
     private final Context mContext;
     private int mState;
     private boolean mPlayOnFocusGain;
@@ -58,6 +63,7 @@ class PlaybackManager implements AudioManager.OnAudioFocusChangeListener{
     private boolean mExoPlayerNullIsStopped =  false;
 
     private final ExoPlayerEventListener mEventListener = new ExoPlayerEventListener();
+    private float playBackSpeed = 1.0f;
 
     public PlaybackManager(Context context, Callback callback) {
         this.mContext = context;
@@ -125,7 +131,6 @@ class PlaybackManager implements AudioManager.OnAudioFocusChangeListener{
                 // Prepares media to play (happens on background thread) and triggers
                 // {@code onPlayerStateChanged} callback when the stream is ready to play.
                 mMediaPlayer.prepare(mediaSource);
-
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -161,6 +166,48 @@ class PlaybackManager implements AudioManager.OnAudioFocusChangeListener{
         }
         mState = PlaybackStateCompat.STATE_PAUSED;
         updatePlaybackState();
+    }
+
+    public void seekTo(long position) {
+        LogHelper.e(TAG, "onSeekTo:", position);
+        if (mMediaPlayer != null) {
+            LogHelper.e(TAG, "onSeekToMasuk:", position);
+            mMediaPlayer.seekTo(position);
+            updatePlaybackState();
+        }
+    }
+
+    public void setPlaybackSpeedPlus(){
+        if(mMediaPlayer!=null){
+            playBackSpeed = (float) (playBackSpeed + 0.1);
+            PlaybackParameters playbackParameters = new PlaybackParameters(playBackSpeed, 1f);
+            mMediaPlayer.setPlaybackParameters(playbackParameters);
+            updatePlaybackState();
+        }
+    }
+
+    public void setPlaybackSpeedMinus(){
+        if(mMediaPlayer!=null){
+            playBackSpeed = (float) (playBackSpeed - 0.1);
+            PlaybackParameters playbackParameters = new PlaybackParameters(playBackSpeed, 1f);
+            mMediaPlayer.setPlaybackParameters(playbackParameters);
+            updatePlaybackState();
+        }
+    }
+
+    public void setPlaybackSpeedDefault(){
+        if(mMediaPlayer!=null){
+            playBackSpeed = 1.0f;
+            PlaybackParameters playbackParameters = new PlaybackParameters(playBackSpeed, 1f);
+            mMediaPlayer.setPlaybackParameters(playbackParameters);
+            updatePlaybackState();
+        }
+    }
+
+    public long getDuration(){
+        if(mMediaPlayer!=null)
+            return mMediaPlayer.getDuration();
+        else return 0;
     }
 
     public void stop() {
@@ -226,8 +273,7 @@ class PlaybackManager implements AudioManager.OnAudioFocusChangeListener{
                     mState = PlaybackStateCompat.STATE_PLAYING;
                     updatePlaybackState();
                 }
-                float volume = canDuck ? 0.2f : 1.0f;
-//                mMediaPlayer.setVolume(volume, volume);
+
             }
         } else if (mState == PlaybackStateCompat.STATE_PLAYING) {
             Log.e("STATUS","TRUE mState == PlaybackStateCompat.STATE_PLAYING");
@@ -267,7 +313,7 @@ class PlaybackManager implements AudioManager.OnAudioFocusChangeListener{
         PlaybackStateCompat.Builder stateBuilder = new PlaybackStateCompat.Builder()
                 .setActions(getAvailableActions());
 
-        stateBuilder.setState(mState, getCurrentStreamPosition(), 1.0f, SystemClock.elapsedRealtime());
+        stateBuilder.setState(mState, getCurrentStreamPosition(), playBackSpeed, SystemClock.elapsedRealtime());
         mCallback.onPlaybackStatusChanged(stateBuilder.build());
     }
 
